@@ -10,30 +10,34 @@ One thing that people regularly do is quantify how much of a particular activity
 
 **Pre-processing**:
 
-Load the library and the data and view the structure of the training data
+Load the libraries and the data and view the structure of the training data
 ```{r}
 library(caret)
+library(rpart) 
+library(rpart.plot)
+library(rattle)
 training<- read.csv("~/Documents/Data Science/RCodes/mo 8/Assignment/pml-training.csv",na.strings=c(NA, "NA",""))
 testing <- read.csv("~/Documents/Data Science/RCodes/mo 8/Assignment/pml-testing.csv",na.strings=c(NA, "NA",""))
-
 str(training)
 ```
 
-We will filter only the relevant variables from the training data set:
-
+We select relevant columns pertaining to predictors we want:
 ```{r}
 index <- grep("classe|belt|arm|dumbbell|forearm", names(training))
 training<-training[,index]
+
+index1 <- grep("classe|belt|arm|dumbbell|forearm", names(testing))
+testing<-testing[,index]
 ```
 
-We will remove variables that are heavily correlated:
+We will then remove columns with missing values:
 
 ```{r}
-nzv <- nearZeroVar(training)
-training<-training[,-nzv]
+training <- training[, colSums(is.na(training)) == 0]
+testing <- testing[, colSums(is.na(testing)) == 0]
 ```
 
-The test set contains a lot of NAs. We will remove thr rows with NAs to improve the accuracy:
+The test set contains a lot of NAs. We will remov rows with NAs to improve the accuracy:
 
 ```{r}
 training <- training[complete.cases(training),] #406 obs of 111 variables
@@ -42,6 +46,7 @@ training <- training[complete.cases(training),] #406 obs of 111 variables
 Since there is no 'classe' variable in the testing dataset, we'll have to use the training set for cross-validation and calculate out of sample error rate. We'll now split the training data set into train & test, with 80% data in training:
 
 ```{r}
+set.seed(4200) 
 inTrain <- createDataPartition(training$classe,p=0.8,list=FALSE)
 train.training<-training[inTrain,]
 test.training <-training[-inTrain,]
@@ -56,6 +61,7 @@ fit.rpart <- train(classe~., data = train.training, method= "rpart")
 fit.rpart
 rpart.results <- fit.rpart$results
 round(max(rpart.results$Accuracy),4)
+fancyRpartPlot(fit.rpart$finalModel)
 
 ctrl <- trainControl(method = "cv", number = 4, allowParallel = TRUE)
 fit.rf <- train(classe~., data = train.training, method= "rf",trControl=ctrl,prof=TRUE)
@@ -65,7 +71,7 @@ round(max(rf.results$Accuracy),4)
 
 ```
 
-While the accurarcy for the rpart was pretty low (0.497), it improved to 0.7744 with the Random Forest method.We will use that model for calculating the out of sample error rates.
+While the accurarcy for the rpart was pretty low (0.5751), it improved to 0.9914 with the Random Forest method.We will use that model for calculating the out of sample error rates.
 
 **Cross Validation and Out of Sample Error Rates**:
 
@@ -76,7 +82,14 @@ pRF <- predict(fit.rf,test.training)
 confusionMatrix(pRF,test.training$classe)
 ```
 
-The accuracy on the test set actually improved to 0.7949. 
-The out of sample error rate is ~0.2
+The accuracy on the test set actually slightly improved to 0.9939. 
+The out of sample error rate is ~0.006
 
+**Predict Test Cases**:
+
+We will use the RF model to predict test cases:
+
+```{r}
+predict(fit.rf,testing)
+```
 
