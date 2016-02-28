@@ -1,0 +1,82 @@
+**Title**: Data Science Coursera Machine Learning Assignment 
+
+**Topic:** Predicting Exercise Behavior
+
+**Author:** Amlan Nanda
+
+**Executive Summary**
+
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants and predict the manner in which they did the exercise
+
+**Pre-processing**:
+
+Load the library and the data and view the structure of the training data
+```{r}
+library(caret)
+training<- read.csv("~/Documents/Data Science/RCodes/mo 8/Assignment/pml-training.csv",na.strings=c(NA, "NA",""))
+testing <- read.csv("~/Documents/Data Science/RCodes/mo 8/Assignment/pml-testing.csv",na.strings=c(NA, "NA",""))
+
+str(training)
+```
+
+We will filter only the relevant variables from the training data set:
+
+```{r}
+index <- grep("classe|belt|arm|dumbbell|forearm", names(training))
+training<-training[,index]
+```
+
+We will remove variables that are heavily correlated:
+
+```{r}
+nzv <- nearZeroVar(training)
+training<-training[,-nzv]
+```
+
+The test set contains a lot of NAs. We will remove thr rows with NAs to improve the accuracy:
+
+```{r}
+training <- training[complete.cases(training),] #406 obs of 111 variables
+```
+
+Since there is no 'classe' variable in the testing dataset, we'll have to use the training set for cross-validation and calculate out of sample error rate. We'll now split the training data set into train & test, with 80% data in training:
+
+```{r}
+inTrain <- createDataPartition(training$classe,p=0.8,list=FALSE)
+train.training<-training[inTrain,]
+test.training <-training[-inTrain,]
+```
+
+**ModelFit**:
+
+We will use try the model fit with both rpart and Random Forest.
+
+```{r}
+fit.rpart <- train(classe~., data = train.training, method= "rpart")
+fit.rpart
+rpart.results <- fit.rpart$results
+round(max(rpart.results$Accuracy),4)
+
+ctrl <- trainControl(method = "cv", number = 4, allowParallel = TRUE)
+fit.rf <- train(classe~., data = train.training, method= "rf",trControl=ctrl,prof=TRUE)
+fit.rf
+rf.results <- fit.rf$results
+round(max(rf.results$Accuracy),4)
+
+```
+
+While the accurarcy for the rpart was pretty low (0.497), it improved to 0.7744 with the Random Forest method.We will use that model for calculating the out of sample error rates.
+
+**Cross Validation and Out of Sample Error Rates**:
+
+We will use the Random Forest model to predict the outcome for the test data.
+
+```{r}
+pRF <- predict(fit.rf,test.training)
+confusionMatrix(pRF,test.training$classe)
+```
+
+The accuracy on the test set actually improved to 0.7949. 
+The out of sample error rate is ~0.2
+
+
